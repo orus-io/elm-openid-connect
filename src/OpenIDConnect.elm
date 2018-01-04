@@ -5,7 +5,6 @@ module OpenIDConnect
         , authorize
         , parse
         , newAuth
-        , showToken
         , use
         , withScope
         , withState
@@ -13,15 +12,20 @@ module OpenIDConnect
 
 {-| An OpenID Connect implementation
 
-@docs authorize, parse, use, showToken
 
-Types
+## Responses
 
-@docs Token, ParseErr
+@docs Token, ParseErr, parse
 
-Constructors
 
-@docs newAuth, withScope, withState
+## Requests
+
+@docs authorize, newAuth, withScope, withState
+
+
+## Use
+
+@docs use
 
 -}
 
