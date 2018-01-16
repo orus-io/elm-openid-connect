@@ -4,7 +4,10 @@ module OpenIDConnect
         , Token
         , authorize
         , parse
+        , parseToken
         , newAuth
+        , tokenData
+        , showToken
         , use
         , withScope
         , withState
