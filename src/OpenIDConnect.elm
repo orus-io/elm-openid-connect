@@ -17,9 +17,14 @@ module OpenIDConnect
 {-| An OpenID Connect implementation
 
 
+## Token
+
+@docs Token, tokenRaw, tokenData, parseToken, showToken
+
+
 ## Responses
 
-@docs Token, ParseErr, parse
+@docs ParseErr, parse
 
 
 ## Requests
@@ -201,6 +206,8 @@ parse decode { hash } =
                 Result.Err NoToken
 
 
+{-| Parse a token
+-}
 parseToken : JsonD.Decoder data -> String -> Result ParseErr (Token data)
 parseToken decode token =
     case String.split "." token of
