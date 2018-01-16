@@ -37,8 +37,8 @@ update msg model =
         Authorize ->
             model
                 ! [ OpenIDConnect.newAuth "authorizationEndpoint" "redirectUri" "clientId"
-                    |> withScope []  -- optional extra scope
-                    |> withState []  -- optional state
+                    |> withScope ["extra", "scope"]  -- optional extra scope
+                    |> withState "a state"  -- optional state
                     |> OpenIDConnect.authorize
                   ]
 ```
