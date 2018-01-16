@@ -7,6 +7,7 @@ module OpenIDConnect
         , parseToken
         , newAuth
         , tokenData
+        , tokenRaw
         , showToken
         , use
         , withScope
@@ -92,9 +93,7 @@ use token =
 -}
 showToken : Token data -> String
 showToken token =
-    case token of
-        Token token data ->
-            "Bearer " ++ token
+    "Bearer" ++ (tokenRaw token)
 
 
 {-| Returns the data of a Token
@@ -104,6 +103,15 @@ tokenData token =
     case token of
         Token token data ->
             data
+
+
+{-| Returns the raw encoded token as a string
+-}
+tokenRaw : Token data -> String
+tokenRaw token =
+    case token of
+        Token token _ ->
+            token
 
 
 {-| Creates a Authorization
