@@ -98,7 +98,7 @@ use token =
 -}
 showToken : Token data -> String
 showToken token =
-    "Bearer" ++ (tokenRaw token)
+    "Bearer " ++ (tokenRaw token)
 
 
 {-| Returns the data of a Token
