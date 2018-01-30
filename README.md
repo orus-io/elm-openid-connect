@@ -51,8 +51,8 @@ init location =
     let
         model = {}
     in
-        case OpenIDConnect.parse location of
-            -- A token has been parsed 
+        case OpenIDConnect.parse subDecoder location of
+            -- A token has been parsed
             Ok token ->
                 { model | token = Just token } ! []
 
