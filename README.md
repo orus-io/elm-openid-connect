@@ -14,6 +14,7 @@ on which it will probably depend in a later version.
 
 ```bash
 elm package install orus-io/elm-openid-connect
+elm package install elm-community/random-string
 ```
 
 ### Usage
@@ -23,6 +24,10 @@ elm package install orus-io/elm-openid-connect
 ```elm
 import OpenIDConnect
 import OpenIDConnect.Decode
+
+import Random
+import Random.Char
+import Random.String
 ```
 
 #### Authorization
@@ -34,11 +39,17 @@ update msg model =
         NoOp ->
             model ! []
 
-        Authorize ->
+        AuthorizeStart ->
+            model !
+                [ Random.generate Authorize <| Random.String 16 Random.Char.ascii ]
+
+        Authorize nonce ->
+            -- The nonce should be stored in a local storage
             model
                 ! [ OpenIDConnect.newAuth "authorizationEndpoint" "redirectUri" "clientId"
                     |> withScope ["extra", "scope"]  -- optional extra scope
                     |> withState "a state"  -- optional state
+                    |> withNonce nonce -- A nonce, must be a random string!
                     |> OpenIDConnect.authorize
                   ]
 ```
@@ -47,10 +58,11 @@ update msg model =
 
 ```elm
 init : Navigation.Location -> ( Model, Cmd Msg )
-init location =
+init location =  -- The nonce should be passed as a flag
     let
         model = {}
     in
+        -- If the nonce is known, use OpenIDConnect.parseWithNonce instead
         case OpenIDConnect.parse subDecoder location of
             -- A token has been parsed
             Ok token ->
