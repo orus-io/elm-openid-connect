@@ -121,6 +121,13 @@ tokenRaw token =
         Token token _ ->
             token
 
+{-| Map token contents
+-}
+mapToken : (a -> b) -> Token a -> Token b
+mapToken f token =
+    case token of
+      Token token data -> Token token (f data)
+
 
 {-| Creates a Authorization
 -}
@@ -196,10 +203,8 @@ qsAddMaybe param ms qs =
             QS.add param s qs
 
 
-{-| Extracts a Token from a location and check the incoming nonce
--}
-parseWithNonce : String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
-parseWithNonce nonce decode { hash } =
+parseWithMaybeNonce : Maybe String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
+parseWithMaybeNonce nonce decode { hash } =
     let
         qs =
             QS.parse ("?" ++ String.dropLeft 1 hash)
@@ -210,40 +215,42 @@ parseWithNonce nonce decode { hash } =
         geti =
             flip (QS.one QS.int) qs
 
-        checkNonce =
-            case ( nonce, gets "nonce" ) of
-                ( "", Nothing ) ->
-                    True
-
-                ( nonce, Just nonceQuery ) ->
-                    nonce /= nonceQuery
-
-                _ ->
-                    False
     in
-        case ( checkNonce, gets "id_token", gets "error" ) of
-            ( True, Just token, _ ) ->
+        case ( gets "id_token", gets "error", nonce ) of
+            ( Just token, _, Just nonce) ->
+                let
+                  parseResult = parseToken (JsonD.map2 (,) (JsonD.field "nonce" JsonD.string) decode) token
+                  validateNonce tokenWithNonce =
+                    if Tuple.first (tokenData tokenWithNonce) == nonce then
+                      Result.Ok <| mapToken Tuple.second tokenWithNonce
+                    else
+                      Result.Err <| Error "Invalid nonce"
+                in parseResult |> Result.andThen validateNonce
+
+            ( Just token, _, Nothing) ->
                 parseToken decode token
 
-            ( _, _, Just error ) ->
+            ( _, Just error, _ ) ->
                 parseError
                     error
                     (gets "error_description")
                     (gets "error_uri")
                     (gets "state")
 
-            ( False, _, _ ) ->
-                Result.Err <| Error "invalid nonce"
-
             _ ->
                 Result.Err NoToken
 
+{-| Extracts a Token from a location and check the incoming nonce
+-}
+parseWithNonce : String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
+parseWithNonce nonce =
+  parseWithMaybeNonce (Just nonce)
 
 {-| Extracts a Token from a location
 -}
 parse : JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
 parse =
-    parseWithNonce ""
+    parseWithMaybeNonce Nothing
 
 
 {-| Parse a token

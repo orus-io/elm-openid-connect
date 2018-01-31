@@ -41,7 +41,7 @@ update msg model =
 
         AuthorizeStart ->
             model !
-                [ Random.generate Authorize <| Random.String 16 Random.Char.ascii ]
+                [ Random.generate Authorize <| Random.String.string 16 Random.Char.latin ]
 
         Authorize nonce ->
             -- The nonce should be stored in a local storage
@@ -72,7 +72,7 @@ init location =  -- The nonce should be passed as a flag
             Err OpenIDConnect.NoToken ->
                 model ! []
 
-            -- An other type of error (invalid parsing or an actual OAuth error) 
+            -- An other type of error (invalid parsing or an actual OAuth error)
             Err _ ->
                 model ! []
 ```
@@ -94,5 +94,3 @@ let
 in
     { model | token = Just token } ! [ Http.send handleResponse req ]
 ```
-
-
