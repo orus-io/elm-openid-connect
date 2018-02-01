@@ -11,6 +11,7 @@ module OpenIDConnect
         , tokenRaw
         , showToken
         , use
+        , withParam
         , withScope
         , withState
         , withNonce
@@ -81,6 +82,7 @@ type alias Authorization =
     , scope : List String
     , state : Maybe String
     , nonce : Maybe String
+    , params : List ( String, String )
     }
 
 
@@ -135,7 +137,7 @@ mapToken f token =
 -}
 newAuth : String -> String -> String -> Authorization
 newAuth url redirectUri clientId =
-    Authorization url redirectUri clientId [ "openid" ] Nothing Nothing
+    Authorization url redirectUri clientId [ "openid" ] Nothing Nothing []
 
 
 {-| Add a custom scope to a Authorization
@@ -164,13 +166,20 @@ withNonce nonce auth =
     { auth | nonce = Just nonce }
 
 
+{-| Add additional querystring parameters to the authorize url
+-}
+withParam : String -> String -> Authorization -> Authorization
+withParam key value auth =
+    { auth | params = ( key, value ) :: auth.params }
+
+
 {-| Build a Cmd that will redirect to the identity provider
 
 Make sure to use withNonce
 
 -}
 authorize : Authorization -> Cmd msg
-authorize { url, redirectUri, clientID, scope, state, nonce } =
+authorize { url, redirectUri, clientID, scope, state, nonce, params } =
     let
         qs =
             QS.empty
@@ -180,6 +189,7 @@ authorize { url, redirectUri, clientID, scope, state, nonce } =
                 |> qsAddList "scope" scope
                 |> qsAddMaybe "state" state
                 |> qsAddMaybe "nonce" nonce
+                |> qsAddAll params
                 |> QS.render
     in
         Navigation.load (url ++ qs)
@@ -203,6 +213,15 @@ qsAddMaybe param ms qs =
 
         Just s ->
             QS.add param s qs
+
+
+qsAddAll : List ( String, String ) -> QS.QueryString -> QS.QueryString
+qsAddAll params qs =
+    let
+        append t =
+            QS.add (Tuple.first t) (Tuple.second t)
+    in
+        List.foldl append qs params
 
 
 parseWithMaybeNonce : Maybe String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
