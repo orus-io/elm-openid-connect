@@ -4,6 +4,7 @@ module OpenIDConnect
         , Token
         , authorize
         , parse
+        , parseWithNonce
         , parseToken
         , newAuth
         , tokenData
@@ -12,6 +13,7 @@ module OpenIDConnect
         , use
         , withScope
         , withState
+        , withNonce
         )
 
 {-| An OpenID Connect implementation
@@ -24,12 +26,12 @@ module OpenIDConnect
 
 ## Responses
 
-@docs ParseErr, parse
+@docs ParseErr, parse, parseWithNonce
 
 
 ## Requests
 
-@docs authorize, newAuth, withScope, withState
+@docs authorize, newAuth, withScope, withState, withNonce
 
 
 ## Use
@@ -78,6 +80,7 @@ type alias Authorization =
     , clientID : String
     , scope : List String
     , state : Maybe String
+    , nonce : Maybe String
     }
 
 
@@ -119,11 +122,20 @@ tokenRaw token =
             token
 
 
+{-| Map token contents
+-}
+mapToken : (a -> b) -> Token a -> Token b
+mapToken f token =
+    case token of
+        Token token data ->
+            Token token (f data)
+
+
 {-| Creates a Authorization
 -}
 newAuth : String -> String -> String -> Authorization
 newAuth url redirectUri clientId =
-    Authorization url redirectUri clientId [ "openid" ] Nothing
+    Authorization url redirectUri clientId [ "openid" ] Nothing Nothing
 
 
 {-| Add a custom scope to a Authorization
@@ -140,10 +152,25 @@ withState state auth =
     { auth | state = Just state }
 
 
+{-| Add a nonce to a Authorization (required)
+
+If omitted, the authorize function will work but the openid-connect
+protocol will not be respected.
+See <http://openid.net/specs/openid-connect-core-1_0.html#ImplicitAuthRequest>
+
+-}
+withNonce : String -> Authorization -> Authorization
+withNonce nonce auth =
+    { auth | nonce = Just nonce }
+
+
 {-| Build a Cmd that will redirect to the identity provider
+
+Make sure to use withNonce
+
 -}
 authorize : Authorization -> Cmd msg
-authorize { url, redirectUri, clientID, scope, state } =
+authorize { url, redirectUri, clientID, scope, state, nonce } =
     let
         qs =
             QS.empty
@@ -152,6 +179,7 @@ authorize { url, redirectUri, clientID, scope, state } =
                 |> QS.add "response_type" "id_token"
                 |> qsAddList "scope" scope
                 |> qsAddMaybe "state" state
+                |> qsAddMaybe "nonce" nonce
                 |> QS.render
     in
         Navigation.load (url ++ qs)
@@ -177,10 +205,8 @@ qsAddMaybe param ms qs =
             QS.add param s qs
 
 
-{-| Extracts a Token from a location
--}
-parse : JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
-parse decode { hash } =
+parseWithMaybeNonce : Maybe String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
+parseWithMaybeNonce nonce decode { hash } =
     let
         qs =
             QS.parse ("?" ++ String.dropLeft 1 hash)
@@ -191,19 +217,46 @@ parse decode { hash } =
         geti =
             flip (QS.one QS.int) qs
     in
-        case ( gets "id_token", gets "error" ) of
-            ( Just token, _ ) ->
+        case ( gets "id_token", gets "error", nonce ) of
+            ( Just token, _, Just nonce ) ->
+                let
+                    parseResult =
+                        parseToken (JsonD.map2 (,) (JsonD.field "nonce" JsonD.string) decode) token
+
+                    validateNonce tokenWithNonce =
+                        if Tuple.first (tokenData tokenWithNonce) == nonce then
+                            Result.Ok <| mapToken Tuple.second tokenWithNonce
+                        else
+                            Result.Err <| Error "Invalid nonce"
+                in
+                    parseResult |> Result.andThen validateNonce
+
+            ( Just token, _, Nothing ) ->
                 parseToken decode token
 
-            ( _, Just error ) ->
+            ( _, Just error, _ ) ->
                 parseError
                     error
                     (gets "error_description")
                     (gets "error_uri")
                     (gets "state")
 
-            ( _, _ ) ->
+            _ ->
                 Result.Err NoToken
+
+
+{-| Extracts a Token from a location and check the incoming nonce
+-}
+parseWithNonce : String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
+parseWithNonce nonce =
+    parseWithMaybeNonce (Just nonce)
+
+
+{-| Extracts a Token from a location
+-}
+parse : JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
+parse =
+    parseWithMaybeNonce Nothing
 
 
 {-| Parse a token
