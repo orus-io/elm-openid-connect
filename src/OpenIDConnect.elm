@@ -121,12 +121,14 @@ tokenRaw token =
         Token token _ ->
             token
 
+
 {-| Map token contents
 -}
 mapToken : (a -> b) -> Token a -> Token b
 mapToken f token =
     case token of
-      Token token data -> Token token (f data)
+        Token token data ->
+            Token token (f data)
 
 
 {-| Creates a Authorization
@@ -214,20 +216,22 @@ parseWithMaybeNonce nonce decode { hash } =
 
         geti =
             flip (QS.one QS.int) qs
-
     in
         case ( gets "id_token", gets "error", nonce ) of
-            ( Just token, _, Just nonce) ->
+            ( Just token, _, Just nonce ) ->
                 let
-                  parseResult = parseToken (JsonD.map2 (,) (JsonD.field "nonce" JsonD.string) decode) token
-                  validateNonce tokenWithNonce =
-                    if Tuple.first (tokenData tokenWithNonce) == nonce then
-                      Result.Ok <| mapToken Tuple.second tokenWithNonce
-                    else
-                      Result.Err <| Error "Invalid nonce"
-                in parseResult |> Result.andThen validateNonce
+                    parseResult =
+                        parseToken (JsonD.map2 (,) (JsonD.field "nonce" JsonD.string) decode) token
 
-            ( Just token, _, Nothing) ->
+                    validateNonce tokenWithNonce =
+                        if Tuple.first (tokenData tokenWithNonce) == nonce then
+                            Result.Ok <| mapToken Tuple.second tokenWithNonce
+                        else
+                            Result.Err <| Error "Invalid nonce"
+                in
+                    parseResult |> Result.andThen validateNonce
+
+            ( Just token, _, Nothing ) ->
                 parseToken decode token
 
             ( _, Just error, _ ) ->
@@ -240,11 +244,13 @@ parseWithMaybeNonce nonce decode { hash } =
             _ ->
                 Result.Err NoToken
 
+
 {-| Extracts a Token from a location and check the incoming nonce
 -}
 parseWithNonce : String -> JsonD.Decoder data -> Navigation.Location -> Result ParseErr (Token data)
 parseWithNonce nonce =
-  parseWithMaybeNonce (Just nonce)
+    parseWithMaybeNonce (Just nonce)
+
 
 {-| Extracts a Token from a location
 -}
