@@ -32,7 +32,7 @@ module OpenIDConnect
 
 ## Requests
 
-@docs authorize, newAuth, withScope, withState, withNonce
+@docs authorize, newAuth, withScope, withState, withNonce, withParam
 
 
 ## Use
